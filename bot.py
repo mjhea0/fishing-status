@@ -12,6 +12,8 @@ issues:
 3. address = google maps link
 4. brute force - sloppy code. refactor functions.
     check for duplicates. add tests. add data to db frequenty.
+
+
 """
 
 ###############
@@ -20,7 +22,7 @@ issues:
 
 # DRIVER = webdriver.PhantomJS()
 DRIVER = webdriver.Firefox()
-DATABASE_NAME = 'fish_links.db'
+DATABASE_NAME = 'test.db'
 
 
 def get_links_by_category(link_array):
@@ -28,7 +30,7 @@ def get_links_by_category(link_array):
     Given a list with a link and category this function returns
     a list of list, each containing the name, URL, and category.
     """
-    all_links = []
+    category_list = []
     counter = 1
     while True:
         DRIVER.get(link_array[0] + str(counter))
@@ -36,7 +38,7 @@ def get_links_by_category(link_array):
             '//span[@class="HeaderControlTitle"]/a[2]')
         if len(links) > 0:
             for link in links:
-                all_links.append(
+                category_list.append(
                     [
                         link.get_attribute('text'),
                         link.get_attribute('href'),
@@ -49,10 +51,14 @@ def get_links_by_category(link_array):
         else:
             break
     DRIVER.quit()
-    return all_links
+    return category_list
 
 
 def add_links_to_database(all_links):
+    """
+    Given a list of list, each containing the name, URL, and category,
+    update the database. WARNING: No deduping!
+    """
     con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
@@ -263,9 +269,10 @@ def add_data_to_database(all_data):
 
 def main():
 
-    for link in starting_links_array_by_category:
-        get_links_by_category(link)
-    # all_data = grab_data()
+    # for link in starting_links_array_by_category:
+    #     category_list = get_links_by_category(link)
+    #     add_links_to_database(category_list)
+    all_data = grab_data()
     # add_data_to_database(all_data)
 
 
