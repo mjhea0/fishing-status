@@ -2,16 +2,14 @@ import sqlite3
 from selenium import webdriver
 from time import sleep
 
-from starting_links import starting_links_array_by_category
+from category_links import starting_links_array_by_category
+from state_links import create_list
 
 """
 issues:
 
-1. pagination > 100
-2. images - not sure if real
 3. address = google maps link
-4. brute force - sloppy code. refactor functions.
-    check for duplicates. add tests. add data to db frequenty.
+4. add data to db frequenty.
 
 
 """
@@ -272,7 +270,12 @@ def main():
     # for link in starting_links_array_by_category:
     #     category_list = get_links_by_category(link)
     #     add_links_to_database(category_list)
-    all_data = grab_data()
+
+    starting_links_array_by_state = create_list()
+    for link in starting_links_array_by_state:
+        category_list = get_links_by_category(link)
+        add_links_to_database(category_list)
+    # all_data = grab_data()
     # add_data_to_database(all_data)
 
 
