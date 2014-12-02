@@ -23,6 +23,11 @@ DRIVER = webdriver.Firefox()
 DATABASE_NAME = 'test.db'
 
 
+############
+### Code ###
+############
+
+
 def get_links_by_category(link_array):
     """
     Given a list with a link and category this function returns
@@ -44,6 +49,7 @@ def get_links_by_category(link_array):
                     ]
                 )
             print '{0}, page {1}...'.format(link_array[1], counter)
+            print category_list  # sanity check
             counter += 1
             sleep(1)
         else:
@@ -267,9 +273,9 @@ def add_data_to_database(all_data):
 
 def main():
 
-    # for link in starting_links_array_by_category:
-    #     category_list = get_links_by_category(link)
-    #     add_links_to_database(category_list)
+    for link in starting_links_array_by_category:
+        category_list = get_links_by_category(link)
+        add_links_to_database(category_list)
 
     starting_links_array_by_state = create_list()
     for link in starting_links_array_by_state:
