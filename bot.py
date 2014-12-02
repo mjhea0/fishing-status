@@ -2,6 +2,8 @@ import sqlite3
 from selenium import webdriver
 from time import sleep
 
+from starting_links import starting_links_array_by_category
+
 """
 issues:
 
@@ -12,14 +14,25 @@ issues:
     check for duplicates. add tests. add data to db frequenty.
 """
 
+###############
+### Globals ###
+###############
 
-def get_links(link_array):
+# DRIVER = webdriver.PhantomJS()
+DRIVER = webdriver.Firefox()
+DATABASE_NAME = 'fish_links.db'
+
+
+def get_links_by_category(link_array):
+    """
+    Given a list with a link and category this function returns
+    a list of list, each containing the name, URL, and category.
+    """
     all_links = []
-    driver = webdriver.Firefox()
     counter = 1
     while True:
-        driver.get(link_array[0] + str(counter))
-        links = driver.find_elements_by_xpath(
+        DRIVER.get(link_array[0] + str(counter))
+        links = DRIVER.find_elements_by_xpath(
             '//span[@class="HeaderControlTitle"]/a[2]')
         if len(links) > 0:
             for link in links:
@@ -35,12 +48,12 @@ def get_links(link_array):
             sleep(1)
         else:
             break
-    driver.quit()
+    DRIVER.quit()
     return all_links
 
 
 def add_links_to_database(all_links):
-    con = sqlite3.connect('fish_links.db')
+    con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
         try:
@@ -51,7 +64,7 @@ def add_links_to_database(all_links):
                 """
             )
         except sqlite3.OperationalError:
-            pass
+            pass  # silenced
         for link in all_links:
             cur.execute(
                 """
@@ -62,7 +75,7 @@ def add_links_to_database(all_links):
 def grab_data():
     all_data_array = []
     driver = webdriver.Firefox()
-    con = sqlite3.connect('fish_links.db')
+    con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
         all_links = cur.execute('SELECT * FROM links;')
@@ -159,7 +172,7 @@ def grab_data():
 
 
 def add_data_to_database(all_data):
-    con = sqlite3.connect('fish_links.db')
+    con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
         try:
@@ -249,23 +262,11 @@ def add_data_to_database(all_data):
 
 
 def main():
-    # starting_links_array = [
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/8/vgsPage/', 'marina'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/72/vgsPage/', 'piers'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1194/vgsPage/', 'lodges & resorts'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1197/vgsPage/', 'clubs & groups'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/9/vgsPage/', 'charters & guides'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1105/vgsPage/', 'publications'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1195/vgsPage/', 'campgrounds'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1198/vgsPage/', 'government'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/70/vgsPage/', 'bait & tackle'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1172/vgsPage/', 'taxidermy'],
-    #     ['http://fishingstatus.com/places/directory/view/groupslist/categoryId/1196/vgsPage/', 'marine service & supplies']
-    # ]
-    # for link in starting_links_array:
-    #     add_links_to_database(get_links(link))
-    all_data = grab_data()
-    add_data_to_database(all_data)
+
+    for link in starting_links_array_by_category:
+        get_links_by_category(link)
+    # all_data = grab_data()
+    # add_data_to_database(all_data)
 
 
 if __name__ == '__main__':
