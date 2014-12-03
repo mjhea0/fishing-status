@@ -2,25 +2,16 @@ import sqlite3
 from selenium import webdriver
 from time import sleep
 
-from category_links import starting_links_array_by_category
+# from category_links import starting_links_array_by_category
 from state_links import create_list
 
-"""
-issues:
-
-3. address = google maps link
-4. add data to db frequenty.
-
-
-"""
 
 ###############
 ### Globals ###
 ###############
 
-# DRIVER = webdriver.PhantomJS()
-DRIVER = webdriver.Firefox()
 DATABASE_NAME = 'test.db'
+ALL_DATA_ARRAY = []
 
 
 ############
@@ -30,15 +21,18 @@ DATABASE_NAME = 'test.db'
 
 def get_links_by_category(link_array):
     """
-    Given a list with a link and category this function returns
-    a list of list, each containing the name, URL, and category.
+    Given a list with a link and category, this function returns
+    a list of lists, each containing the name, URL, and category.
     """
+    DRIVER = webdriver.Firefox()
+    # DRIVER = webdriver.PhantomJS()
     category_list = []
     counter = 1
     while True:
         DRIVER.get(link_array[0] + str(counter))
         links = DRIVER.find_elements_by_xpath(
             '//span[@class="HeaderControlTitle"]/a[2]')
+        # If there are relevant links on the page, grab them
         if len(links) > 0:
             for link in links:
                 category_list.append(
@@ -49,9 +43,9 @@ def get_links_by_category(link_array):
                     ]
                 )
             print '{0}, page {1}...'.format(link_array[1], counter)
-            print category_list  # sanity check
+            # print category_list  # sanity check
             counter += 1
-            sleep(1)
+            sleep(1)  # to reduce load
         else:
             break
     DRIVER.quit()
@@ -60,8 +54,8 @@ def get_links_by_category(link_array):
 
 def add_links_to_database(all_links):
     """
-    Given a list of list, each containing the name, URL, and category,
-    update the database. WARNING: No deduping!
+    Given a list of lists, each containing the name, URL, and category,
+    update the database.
     """
     con = sqlite3.connect(DATABASE_NAME)
     with con:
@@ -75,113 +69,170 @@ def add_links_to_database(all_links):
             )
         except sqlite3.OperationalError:
             pass  # silenced
+
+        # loop through scrapped emails
         for link in all_links:
-            cur.execute(
-                """
-                INSERT INTO links(name, url, category) VALUES(?, ?, ?)
-                """, (link[0], link[1], link[2]))
+            cur.execute("SELECT url FROM links where url = ?", (link[1],))
+            check = cur.fetchone()
+            # if link is not in db, add it
+            if check is None:
+                cur.execute(
+                    """
+                    INSERT INTO links(name, url, category) VALUES(?, ?, ?)
+                    """, (link[0], link[1], link[2]))
 
 
 def grab_data():
-    all_data_array = []
-    driver = webdriver.Firefox()
+    """
+    Grab all scrapped links from the links table in the database.
+    Iterating through the links, scrap relevant data from each -
+
+        name
+        url
+        category
+        street address
+        city
+        state
+        address (google maps url)
+        website
+        phone
+        email
+        facebook
+        twitter
+        image (url)
+
+    - returning a list of dicts
+    Note: In *most* cases facebook and twitter profiles are not listed. Also,
+    the image is usually a placeholder image.
+    """
+    DRIVER = webdriver.Firefox()
+    # DRIVER = webdriver.PhantomJS()
     con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
-        all_links = cur.execute('SELECT * FROM links;')
+        # all_links = cur.execute('SELECT * FROM links;')
+        all_links = cur.execute('SELECT * FROM links LIMIT 10;')  # for testing
     for link in all_links:
         all_data = {}
-        driver.get(str(link[2]))
+        DRIVER.get(str(link[2]))
         all_data["name"] = link[1]
         all_data["url"] = link[2]
         all_data["category"] = link[3]
+        # Grab data from the table (if exists)
         try:
-            row_one_name = driver.find_element_by_xpath(
-                '//tbody/tr[2]/td[1]').text
-            row_one_value = driver.find_element_by_xpath(
-                '//tbody/tr[2]/td[2]/a').get_attribute('href')
+            row_one_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[1]').text  # street address
+            row_one_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[2]/a').get_attribute('text')
             all_data[row_one_name] = row_one_value
         except:
-            pass
+            pass  # silenced
         try:
-            row_two_name = driver.find_element_by_xpath(
-                '//tbody/tr[3]/td[1]').text
-            row_two_value = driver.find_element_by_xpath(
-                '//tbody/tr[3]/td[2]/a').get_attribute('href')
+            row_two_name = "city"
+            row_two_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[2]/a[2]').get_attribute('text')
             all_data[row_two_name] = row_two_value
         except:
-            pass
+            pass  # silenced
         try:
-            row_three_name = driver.find_element_by_xpath(
-                '//tbody/tr[4]/td[1]').text
-            row_three_value = driver.find_element_by_xpath(
-                '//tbody/tr[4]/td[2]/a').get_attribute('text')
+            row_three_name = "state"
+            row_three_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[2]/a[3]').get_attribute('text')
             all_data[row_three_name] = row_three_value
         except:
-            pass
+            pass  # silenced
         try:
-            row_four_name = driver.find_element_by_xpath(
-                '//tbody/tr[5]/td[1]').text
-            if row_four_name == "Social":
+            row_four_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[1]').text  # address url
+            row_four_name = row_one_name + " url"
+            row_four_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[2]/td[2]/a').get_attribute('href')
+            all_data[row_four_name] = row_four_value
+        except:
+            pass  # silenced
+        try:
+            row_five_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[3]/td[1]').text  # website
+            row_five_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[3]/td[2]/a').get_attribute('href')
+            all_data[row_five_name] = row_five_value
+        except:
+            pass  # silenced
+        try:
+            row_six_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[4]/td[1]').text  # phone
+            row_six_value = DRIVER.find_element_by_xpath(
+                '//tbody/tr[4]/td[2]/a').get_attribute('text')
+            all_data[row_six_name] = row_six_value
+        except:
+            pass  # silenced
+        try:
+            row_seven_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[5]/td[1]').text  # social links and/or email
+            if row_seven_name == "Social":
                 try:
-                    row_four_name_one = driver.find_element_by_xpath(
+                    row_seven_name_one = DRIVER.find_element_by_xpath(
                         '//tbody/tr[5]/td[2]/a').get_attribute('text')
-                    row_four_value_one = driver.find_element_by_xpath(
+                    row_seven_value_one = DRIVER.find_element_by_xpath(
                         '//tbody/tr[5]/td[2]/a').get_attribute('href')
-                    all_data[row_four_name_one] = row_four_value_one
+                    all_data[row_seven_name_one] = row_seven_value_one
                 except:
-                    pass
+                    pass  # silenced
                 try:
-                    row_four_name_two = driver.find_element_by_xpath(
+                    row_seven_name_two = DRIVER.find_element_by_xpath(
                         '//tbody/tr[5]/td[2]/a[2]').get_attribute('text')
-                    row_four_value_two = driver.find_element_by_xpath(
+                    row_seven_value_two = DRIVER.find_element_by_xpath(
                         '//tbody/tr[5]/td[2]/a[2]').get_attribute('href')
-                    all_data[row_four_name_two] = row_four_value_two
+                    all_data[row_seven_name_two] = row_seven_value_two
                 except:
-                    pass
+                    pass  # silenced
             else:
-                row_four_value = driver.find_element_by_xpath(
+                row_seven_value = DRIVER.find_element_by_xpath(
                     '//tbody/tr[5]/td[2]/a').get_attribute('text')
-                all_data[row_four_name] = row_four_value
+                all_data[row_seven_name] = row_seven_value
         except:
-            pass
+            pass  # silenced
         try:
-            row_five_name = driver.find_element_by_xpath(
-                '//tbody/tr[6]/td[1]').text
-            if row_five_name == "Social":
+            row_eight_name = DRIVER.find_element_by_xpath(
+                '//tbody/tr[6]/td[1]').text  # social links and/or email
+            if row_eight_name == "Social":
                 try:
-                    row_five_name_one = driver.find_element_by_xpath(
+                    row_eight_name_one = DRIVER.find_element_by_xpath(
                         '//tbody/tr[6]/td[2]/a').get_attribute('text')
-                    row_five_value_one = driver.find_element_by_xpath(
+                    row_eight_value_one = DRIVER.find_element_by_xpath(
                         '//tbody/tr[6]/td[2]/a').get_attribute('href')
-                    all_data[row_five_name_one] = row_five_value_one
+                    all_data[row_eight_name_one] = row_eight_value_one
                 except:
-                    pass
+                    pass  # silenced
                 try:
-                    row_five_name_two = driver.find_element_by_xpath(
+                    row_eight_name_two = DRIVER.find_element_by_xpath(
                         '//tbody/tr[6]/td[2]/a[2]').get_attribute('text')
-                    row_five_value_two = driver.find_element_by_xpath(
+                    row_eight_value_two = DRIVER.find_element_by_xpath(
                         '//tbody/tr[6]/td[2]/a[2]').get_attribute('href')
-                    all_data[row_five_name_two] = row_five_value_two
+                    all_data[row_eight_name_two] = row_eight_value_two
                 except:
-                    pass
+                    pass  # silenced
             else:
-                row_five_value = driver.find_element_by_xpath(
+                row_eight_value = DRIVER.find_element_by_xpath(
                     '//tbody/tr[6]/td[2]/a').get_attribute('href')
-                all_data[row_five_name] = row_five_value
+                all_data[row_eight_name] = row_eight_value
         except:
-            pass
-        img = driver.find_element_by_xpath(
+            pass  # silenced
+        img = DRIVER.find_element_by_xpath(
             '//div[@id="dnn_ctr387_ModuleContent"]/div[2]/a[2]/img'
         ).get_attribute('src')
         all_data["image"] = img
         print 'Grabbing data - {0}, row {1}...'.format(link[3], link[0])
-        all_data_array.append([all_data])
-    driver.quit()
-    return all_data_array
+        ALL_DATA_ARRAY.append([all_data])
+    DRIVER.quit()
+    # print ALL_DATA_ARRAY  # sanity check
+    return ALL_DATA_ARRAY  # all data!!
 
 
 def add_data_to_database(all_data):
+    """
+    Given the ALL_DATA_ARRAY, this function adds the data to the database.
+    """
     con = sqlite3.connect(DATABASE_NAME)
     with con:
         cur = con.cursor()
@@ -193,7 +244,10 @@ def add_data_to_database(all_data):
                     name TEXT,
                     url TEXT,
                     category TEXT,
-                    address TEXT,
+                    street_address TEXT,
+                    city TEXT,
+                    state TEXT,
+                    address_url TEXT,
                     website TEXT,
                     phone TEXT,
                     email TEXT,
@@ -211,14 +265,27 @@ def add_data_to_database(all_data):
             url = array[0]['url']
             category = array[0]['category']
             if 'Address' in array[0].keys():
-                address = array[0]['Address']
+                street_address = array[0]['Address']
             else:
-                address = 'n/a'
+                street_address = 'n/a'
+            if 'city' in array[0].keys():
+                city = array[0]['city']
+            else:
+                city = 'n/a'
+            if 'state' in array[0].keys():
+                state = array[0]['state']
+            else:
+                state = 'n/a'
+            if 'Address url' in array[0].keys():
+                address_url = array[0]['Address url']
+            else:
+                address_url = 'n/a'
+                state = 'n/a'
             if 'Website' in array[0].keys():
                 website = array[0]['Website']
             else:
                 website = 'n/a'
-            if 'Phone' in array[0].keys():
+            if 'phone' in array[0].keys():
                 phone = array[0]['Phone']
             else:
                 phone = 'n/a'
@@ -246,7 +313,10 @@ def add_data_to_database(all_data):
                     name,
                     url,
                     category,
-                    address,
+                    street_address,
+                    city,
+                    state,
+                    address_url,
                     website,
                     phone,
                     email,
@@ -254,13 +324,16 @@ def add_data_to_database(all_data):
                     twitter,
                     image
                 )
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
                     url,
                     category,
-                    address,
+                    street_address,
+                    city,
+                    state,
+                    address_url,
                     website,
                     phone,
                     email,
@@ -273,16 +346,21 @@ def add_data_to_database(all_data):
 
 def main():
 
-    for link in starting_links_array_by_category:
-        category_list = get_links_by_category(link)
-        add_links_to_database(category_list)
+    # for link in starting_links_array_by_category:
+    #     category_list = get_links_by_category(link)
+    #     add_links_to_database(category_list)
 
+    # grab links, add to database
     starting_links_array_by_state = create_list()
     for link in starting_links_array_by_state:
         category_list = get_links_by_category(link)
         add_links_to_database(category_list)
-    # all_data = grab_data()
-    # add_data_to_database(all_data)
+
+    # scrape data from links
+    all_data = grab_data()
+
+    # add scraped data to the database
+    add_data_to_database(all_data)
 
 
 if __name__ == '__main__':

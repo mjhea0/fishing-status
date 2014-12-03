@@ -7,8 +7,17 @@ states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
           "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
 
 starting_links_array_by_state = [
+    ['8/State/', 'marina'],
+    ['72/State/', 'piers'],
+    ['1194/State/', 'lodges & resorts'],
+    ['1197/State/', 'clubs & groups'],
     ['9/State/', 'charters & guides'],
+    ['1105/State/', 'publications'],
+    ['1195/State/', 'campgrounds'],
+    ['1198/State/', 'government'],
     ['70/State/', 'bait & tackle'],
+    ['1172/State/', 'taxidermy'],
+    ['1196/State/', 'marine service & supplies']
 ]
 
 
